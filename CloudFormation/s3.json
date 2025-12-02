@@ -7,7 +7,7 @@
       "Type": "AWS::S3::Bucket",
       "Description": "S3 bucket creation",
       "Properties": {
-        "BucketName": "polystudents3-1584966-flow-logs",
+        "BucketName": "polystudents3-1584966-flow-logs-02",
         "AccessControl": "Private",
         "PublicAccessBlockConfiguration": {
           "BlockPublicAcls": true,

@@ -34,6 +34,8 @@ AWS_ACCESS_KEY = _cfg.get("aws_access_key_id")
 AWS_SECRET_ACCESS_KEY = _cfg.get("aws_secret_access_key")
 AWS_SESSION_TOKEN = _cfg.get("aws_session_token")
 BUCKET_ARN = _cfg.get("bucket_arn")
+AMI_ID = ""
+INSTANCE_TYPE = "t3.micro"
 
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY,
@@ -44,6 +46,8 @@ session = boto3.Session(
 
 ec2 = session.resource('ec2')
 ec2_client = session.client('ec2')
+cloudwatch = session.client('cloudwatch')
+
 
 # -----------------------------
 # CRÉATION VPC & SUBNETS
@@ -269,33 +273,147 @@ def show_vpc_flow_logs(vpc):
               "| Status:", flow_log["FlowLogStatus"],
               "| TrafficType:", flow_log["TrafficType"],
               "| Dest:", flow_log["LogDestination"])
+
+def lauch_instance(sg, public_subnet_01, public_subnet_02, private_subnet_01, private_subnet_02):
+    
+    # Same arguments for all instances
+    common_args = {
+        'ImageId': AMI_ID,
+        'InstanceType': INSTANCE_TYPE,
+        'MinCount': 1,
+        'MaxCount': 1,
+        'SecurityGroupIds': [sg.id],
         
+        'IamInstanceProfile': {
+            'Name': 'LabRole'  
+        },
+    }
+    
+    # Launch instance in public subnet 1
+    public_az1 = ec2.create_instances(
+        SubnetId=public_subnet_01.id,
+        KeyName=KEY_NAME,
+        **common_args,
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {'Key': 'Name', 'Value':'Public Instance AZ1'}
+                    ]
+            }
+        ]
+    )[0]
+
+    # Launch instance in public subnet 2
+    public_az2 = ec2.create_instances(
+        SubnetId=public_subnet_02.id,
+        KeyName=KEY_NAME,
+        **common_args,
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {'Key': 'Name', 'Value':'Public Instance AZ2'}
+                    ]
+            }
+        ]
+    )[0]
+
+    # Launch instance in private subnet 1
+    private_az1 = ec2.create_instances(
+        SubnetId=private_subnet_01.id,
+        KeyName=KEY_NAME,
+        **common_args,
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {'Key': 'Name', 'Value':'Private Instance AZ1'}
+                    ]
+            }
+        ]
+    )[0]
+
+    # Launch instance in private subnet 2
+    private_az2 = ec2.create_instances(
+        SubnetId=private_subnet_02.id,
+        KeyName=KEY_NAME,
+        **common_args,
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {'Key': 'Name', 'Value':'Private Instance AZ2'}
+                    ]
+            }
+        ]
+    )[0]
+
+    instances = [public_az1, public_az2, private_az1, private_az2]
+    
+    for inst in instances:
+        print(f'Instance launched: {inst.id} in Subnet: {inst.subnet_id}')
+
+    return [inst.id for inst in instances]
+
+# Create CloudWatch Alarms for Ingress Network Packets (Question 3.2)
+def create_ingress_packet_alarms(instance_ids):
+    
+    for instance_id in instance_ids:
+        alarm_name = f"IngressPacketsHigh-{instance_id}"
+        cloudwatch.put_metric_alarm(
+            AlarmName=alarm_name,
+            AlarmDescription=(
+                "Alarm when average NetworkPacketsIn over the period "
+                "exceeds 1000 packets per second."
+            ),
+            Namespace="AWS/EC2",
+            MetricName="NetworkPacketsIn",
+            Dimensions=[
+                {"Name": "InstanceId", "Value": instance_id}
+            ],
+            Statistic="Average",
+            Period=60,                 # 60s period
+            EvaluationPeriods=1,
+            Threshold=1000.0,          # 1000 pkts/sec
+            ComparisonOperator="GreaterThanThreshold",
+            TreatMissingData="notBreaching",
+            ActionsEnabled=False     
+        )
+        print(f"Alarm {alarm_name} created for instance {instance_id}")
+
 if __name__ == "__main__":
-    # Creation VPC
+    # Creation VPC (Question 1)
     vpc = create_vpc()
     
     # Enable VPC Flow Logs (Question 3.1)
     enable_vpc_flow_logs(vpc)
     
-    # Creation des subnets
+    # Creation des subnets (Question 1)
     public_subnet_01, public_subnet_02, private_subnet_01, private_subnet_02 = create_subnet(vpc)
     
-    # Creation Igw
+    # Creation Igw (Question 1)
     igw = create_internet_gateway(vpc)
     
-    # Creation des Public Route Tables
+    # Creation des Public Route Tables (Question 1)
     create_public_route_table(vpc, igw, [public_subnet_01, public_subnet_02])
     
-    # Creation des NAT Gateways 
+    # Creation des NAT Gateways (Question 1)
     nat_gateway_id_az1 = nat_gateway_setup(public_subnet_01)
     nat_gateway_id_az2 = nat_gateway_setup(public_subnet_02)
     
-    # Creation des Private Route Tables
+    # Creation des Private Route Tables (Question 1)
     create_private_route_table(vpc, nat_gateway_id_az1, private_subnet_01)
     create_private_route_table(vpc, nat_gateway_id_az2, private_subnet_02)
     
-    # Creation des Security Groups
-    create_security_group(vpc)
+    # Creation des Security Groups (Question 1)
+    sg = create_security_group(vpc)
     
     # Show VPC Flow Logs (Question 3.1)
     show_vpc_flow_logs(vpc)
+    
+    # Launch 4 EC2 instances with IAM role LabRole (Question 3.2)
+    instance_ids = lauch_instance(sg, public_subnet_01, public_subnet_02, private_subnet_01, private_subnet_02,)
+    
+    # Create CloudWatch Alarms for Ingress Network Packets (Question 3.2)
+    create_ingress_packet_alarms(instance_ids)
