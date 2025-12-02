@@ -250,17 +250,6 @@ def enable_vpc_flow_logs(vpc):
         TrafficType='REJECT',
         LogDestinationType='s3',
         LogDestination=bucket_arn,
-        TagSpecifications=[
-            {
-                'ResourceType': 'flow-log',
-                'Tags': [
-                    {
-                        'Key': 'Name',
-                        'Value': f'{ENV_NAME} VPC Flow Logs'
-                    },
-                ]
-            },
-        ]
     )
     print(f'VPC Flow Logs enabled for VPC: {vpc.id}')
     return response 
