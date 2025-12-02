@@ -5,7 +5,7 @@ import os
 # PARAMÈTRES & ENV
 # -----------------------------
 
-ENV_FILE = os.getenv("ENV_FILE", ".env")
+ENV_FILE = os.getenv("ENV_FILE", "Boto3/.env")
 
 def _read_dotenv(path: str) -> dict:
     vals = {}
