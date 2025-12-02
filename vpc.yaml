@@ -47,11 +47,11 @@ Resources:
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
-        - Key: name
+        - Key: Name
           Value: !Ref EnvironmentName
 
   PublicSubnet1:
-    Type: AWS::EC2::subnet
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 0, !GetAZs '']
@@ -59,10 +59,10 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
 
   PublicSubnet2:
-    Type: AWS::EC2::subnet
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 1, !GetAZs '']
@@ -70,10 +70,10 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
 
   PrivateSubnet1:
-    Type: AWS::EC2::subnet
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 0, !GetAZs '']
@@ -81,18 +81,18 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
 
   PrivateSubnet2:
-    Type: AWS::EC2::subnet
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 1, !GetAZs '']
-      CidrBlock: !Ref PrivateSubnet1CIDR
+      CidrBlock: !Ref PrivateSubnet2CIDR
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -115,28 +115,34 @@ Resources:
       VpcId: !Ref VPC
   
   NatGateway1EIP:
-    Type: AWS::EC2::NatGateway1EIP
-    Dependson: InternetGatewayAttachment
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
     Properties:
-      Domain: Vpc
+      Domain: vpc
   
   NatGateway2EIP:
     Type: AWS::EC2::EIP
-    Dependson: InternetGatewayAttachment
+    DependsOn: InternetGatewayAttachment
     Properties:
-      Domain: Vpc    
+      Domain: vpc    
 
   NatGateway1:
-    Type: AWS::EC2::EIP
+    Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt NatGateway1EIP.AllocationId
-      SubnetId: !Ref PublicSubnet1    
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} NAT Gateway (AZ1)
 
   NatGateway2:
-    Type: AWS::EC2::EIP
+    Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt NatGateway2EIP.AllocationId
       SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} NAT Gateway (AZ2)
 
   DefaultPublicRoute:
     Type: AWS::EC2::Route
@@ -201,7 +207,7 @@ Resources:
       SubnetId: !Ref PrivateSubnet2
   
   IngressSecurityGroup:
-    Type: AWS::EC2::IngressSecurityGroup
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: "polystudent-sg"
       GroupDescription: "Security group allows SSH, HTTP, HTTPS, MSSQL,etc..."
@@ -211,39 +217,39 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
-        - IpProtocol: http
+        - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
-        - IpProtocol: https
+        - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-        - IpProtocol: dns
+        - IpProtocol: tcp
           FromPort: 53
           ToPort: 53
           CidrIp: 0.0.0.0/0
-        - IpProtocol: mssql
+        - IpProtocol: tcp
           FromPort: 1433
           ToPort: 1433
           CidrIp: 0.0.0.0/0
-        - IpProtocol: postgresql
+        - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
           CidrIp: 0.0.0.0/0
-        - IpProtocol: mysql
+        - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
           CidrIp: 0.0.0.0/0
-        - IpProtocol: rdp
+        - IpProtocol: tcp
           FromPort: 3389
           ToPort: 3389
           CidrIp: 0.0.0.0/0
-        - IpProtocol: ossec
+        - IpProtocol: tcp
           FromPort: 1514
           ToPort: 1514
           CidrIp: 0.0.0.0/0
-        - IpProtocol: elasticsearch
+        - IpProtocol: tcp
           FromPort: 9200
           ToPort: 9200
           CidrIp: 0.0.0.0/0
