@@ -33,6 +33,7 @@ KEY_NAME = _cfg.get("KEY_NAME", "cle_log8102")
 AWS_ACCESS_KEY = _cfg.get("aws_access_key_id")
 AWS_SECRET_ACCESS_KEY = _cfg.get("aws_secret_access_key")
 AWS_SESSION_TOKEN = _cfg.get("aws_session_token")
+BUCKET_ARN = _cfg.get("bucket_arn")
 
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY,
@@ -238,9 +239,54 @@ def create_security_group(vpc):
     print(f'Security Group: {sg.id}')
     return sg    
 
+#Function that enable the use of VPC Flow Logs (Question 3.1)
+def enable_vpc_flow_logs(vpc):
+    
+    bucket_arn = BUCKET_ARN
+    
+    response = ec2_client.create_flow_logs(
+        ResourceIds=[vpc.id],
+        ResourceType='VPC',
+        TrafficType='REJECT',
+        LogDestinationType='s3',
+        LogDestination=bucket_arn,
+        TagSpecifications=[
+            {
+                'ResourceType': 'flow-log',
+                'Tags': [
+                    {
+                        'Key': 'Name',
+                        'Value': f'{ENV_NAME} VPC Flow Logs'
+                    },
+                ]
+            },
+        ]
+    )
+    print(f'VPC Flow Logs enabled for VPC: {vpc.id}')
+    return response 
+    
+# Show the flow log function
+def show_vpc_flow_logs(vpc):
+    resp = ec2_client.describe_flow_logs(
+        Filter=[
+            {   'Name': 'resource-id',
+                'Values': [vpc.id]
+            },
+        ]
+    )
+    print(f'Flow Logs for VPC {vpc.id}:')
+    for flow_log in resp.get('FlowLogs',[]):
+        print("  - FlowLogId:", flow_log["FlowLogId"],
+              "| Status:", flow_log["FlowLogStatus"],
+              "| TrafficType:", flow_log["TrafficType"],
+              "| Dest:", flow_log["LogDestination"])
+        
 if __name__ == "__main__":
     # Creation VPC
     vpc = create_vpc()
+    
+    # Enable VPC Flow Logs (Question 3.1)
+    enable_vpc_flow_logs(vpc)
     
     # Creation des subnets
     public_subnet_01, public_subnet_02, private_subnet_01, private_subnet_02 = create_subnet(vpc)
@@ -261,3 +307,6 @@ if __name__ == "__main__":
     
     # Creation des Security Groups
     create_security_group(vpc)
+    
+    # Show VPC Flow Logs (Question 3.1)
+    show_vpc_flow_logs(vpc)
