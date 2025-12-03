@@ -29,12 +29,12 @@ AZ2 = "us-east-1b"
 
 ENV_NAME = _cfg.get("ENVIRONMENT_NAME", "polystudent-vpc-boto3")
 
-KEY_NAME = _cfg.get("KEY_NAME", "cle_log8102")
+KEY_NAME = _cfg.get("KEY_NAME", "cle-log8102")
 AWS_ACCESS_KEY = _cfg.get("aws_access_key_id")
 AWS_SECRET_ACCESS_KEY = _cfg.get("aws_secret_access_key")
 AWS_SESSION_TOKEN = _cfg.get("aws_session_token")
 BUCKET_ARN = _cfg.get("bucket_arn")
-AMI_ID = ""
+AMI_ID = "ami-0ecb62995f68bb549"
 INSTANCE_TYPE = "t3.micro"
 
 session = boto3.Session(
@@ -285,7 +285,7 @@ def lauch_instance(sg, public_subnet_01, public_subnet_02, private_subnet_01, pr
         'SecurityGroupIds': [sg.id],
         
         'IamInstanceProfile': {
-            'Name': 'LabRole'  
+            'Name': 'LabInstanceProfile'  
         },
     }
     
