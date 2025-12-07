@@ -351,7 +351,7 @@ if __name__ == "__main__":
                             aws_access_key_id=ACCESS_KEY,
                             aws_secret_access_key=SECRET_KEY,
                         )
-    # Create VPC Template
+    # Create VPC Architecture
     vpc_id = create_vpc(ec2_client)
 
     # Add Public and Private Subnets to VPC

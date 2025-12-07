@@ -6,6 +6,7 @@ sys.path.append("./Questions")
 from dotenv import load_dotenv
 
 from q1_vpc import *
+from q2_s3 import *
 
 
 load_dotenv()
@@ -21,7 +22,7 @@ def create_vpc_flow_logs(ec2_client, vpc_id):
         ResourceIds=[vpc_id],
         TrafficType = 'REJECT',
         LogDestinationType = 's3',
-        LogDestination = f"{BUCKET_ARN}/tp4-vpc-flow-logs/",
+        LogDestination = f"{BUCKET_ARN}",
         TagSpecifications=[
         {
             'ResourceType': 'vpc-flow-log',
@@ -46,7 +47,22 @@ if __name__ == "__main__":
                             aws_access_key_id=ACCESS_KEY,
                             aws_secret_access_key=SECRET_KEY,
                         )
-    # Create VPC Template
+    
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=ACCESS_KEY,
+        aws_secret_access_key=SECRET_KEY,
+        region_name='us-east-1'
+    )
+
+    list_b = s3_client.list_buckets()
+    bucket_names = [bucket['Name'] for bucket in list_b['Buckets']]
+    if BUCKET_NAME not in bucket_names:
+        create_s3_bucket(s3_client)
+    else:
+        print("S3 Bucket already exists.")
+    
+    # Create VPC Architecture
     vpc_id = create_vpc(ec2_client)
 
     # Add Public and Private Subnets to VPC
