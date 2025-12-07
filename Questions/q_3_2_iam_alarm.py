@@ -33,7 +33,28 @@ def add_iam_role_ec2_instance(ec2_client, subnet_id, security_group_id):
     instance_id = iam_response['Instances'][0]['InstanceId']
     print("Launched Instance ID:", instance_id)
     return instance_id
+
+
+def add_cloudwatch_alarm(cloudwatch_client, subnets_instance_ids):
     
+    for instance_id in subnets_instance_ids:
+        cloudwatch_client.put_metric_alarm(
+            AlarmName = 'IngressNumberofPackets',
+            Statistic='Average',
+            Period=60,
+            Dimensions=[
+                {"Name": "InstanceId", "Value": instance_id}
+            ],
+            Namespace="AWS/EC2",
+            MetricName="NetworkPacketsIn",
+            EvaluationPeriods=1,
+            Threshold=1000.0,
+            ComparisonOperator="GreaterThanThreshold",
+            TreatMissingData="notBreaching",
+            ActionsEnabled=False     
+        )
+
+        print(f"Alarm IngressNumberofPackets created for instance {instance_id}")
 
 if __name__ == "__main__":
     ec2_client = boto3.client('ec2', 
@@ -43,6 +64,12 @@ if __name__ == "__main__":
                         )
     
     iam_client = boto3.client('iam',
+                            region_name='us-east-1',
+                            aws_access_key_id=ACCESS_KEY,
+                            aws_secret_access_key=SECRET_KEY,
+                            )
+    
+    cloudwatch_client = boto3.client('cloudwatch',
                             region_name='us-east-1',
                             aws_access_key_id=ACCESS_KEY,
                             aws_secret_access_key=SECRET_KEY,
@@ -79,3 +106,8 @@ if __name__ == "__main__":
     instance_public_2_id = add_iam_role_ec2_instance(ec2_client, public_subnet2_id, security_group_id)
     instance_private_1_id = add_iam_role_ec2_instance(ec2_client, private_subnet1_id, security_group_id)
     instance_private_2_id = add_iam_role_ec2_instance(ec2_client, private_subnet2_id, security_group_id)
+
+    subnets_instance_ids = [instance_public_1_id, instance_public_2_id, instance_private_1_id, instance_private_2_id]
+
+    # Create a CloudWatch alarm for each subnet instance
+    add_cloudwatch_alarm(cloudwatch_client, subnets_instance_ids)
