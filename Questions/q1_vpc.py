@@ -365,6 +365,7 @@ if __name__ == "__main__":
     nat_gateway1_id = create_nat_gateway(ec2_client, public_subnet1_id)
     nat_gateway2_id = create_nat_gateway(ec2_client, public_subnet2_id)
 
+    # Create Route Table and Public Routes to Subnets
     public_route_table_id = create_public_route_table(ec2_client, vpc_id, internet_gateway_id, public_subnet1_id, public_subnet2_id)
     private_route_table1_id, private_route_table2_id = create_private_route_table(ec2_client, vpc_id, nat_gateway1_id, nat_gateway2_id, private_subnet1_id, private_subnet2_id)
 
