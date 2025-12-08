@@ -1,0 +1,42 @@
+﻿[
+  {
+    "Description": "S3 buckets should block public ACLs on buckets and any objects they contain. By blocking, PUTs with fail if the object has any public ACL a.\n",
+    "Severity": "HIGH",
+    "ID": "AVD-AWS-0086"
+  },
+  {
+    "Description": "S3 bucket policy should have block public policy to prevent users from putting a policy that enable public access.\n",
+    "Severity": "HIGH",
+    "ID": "AVD-AWS-0087"
+  },
+  {
+    "Description": "S3 Buckets should be encrypted to protect the data that is stored within them if access is compromised.\n",
+    "Severity": "HIGH",
+    "ID": "AVD-AWS-0088"
+  },
+  {
+    "Description": "S3 buckets should ignore public ACLs on buckets and any objects they contain. By ignoring rather than blocking, PUT calls with public ACLs will still be applied but the ACL will be ignored.\n",
+    "Severity": "HIGH",
+    "ID": "AVD-AWS-0091"
+  },
+  {
+    "Description": "S3 buckets should restrict public policies for the bucket. By enabling, the restrict_public_buckets, only the bucket owner and AWS Services can access if it has a public policy.\n",
+    "Severity": "HIGH",
+    "ID": "AVD-AWS-0093"
+  },
+  {
+    "Description": "Encryption using AWS keys provides protection for your S3 buckets. To increase control of the encryption and manage factors like rotation use customer managed keys.\n",
+    "Severity": "HIGH",
+    "ID": "AVD-AWS-0132"
+  },
+  {
+    "Description": "You should limit the provision of public IP addresses for resources. Resources should not be exposed on the public internet, but should have access limited to consumers required for the function of your application.\n",
+    "Severity": "HIGH",
+    "ID": "aws-vpc-no-public-ingress-sgr"
+  },
+  {
+    "Description": "You should limit the provision of public IP addresses for resources. Resources should not be exposed on the public internet, but should have access limited to consumers required for the function of your application.\n",
+    "Severity": "HIGH",
+    "ID": "aws-vpc-no-public-ingress-sgr"
+  }
+]
