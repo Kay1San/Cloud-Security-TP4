@@ -2,115 +2,81 @@ import boto3
 import botocore
 import os
 import json
+from dotenv import load_dotenv
+import time
 
-# ------------- CONFIG -------------
-ENV_FILE = os.getenv("ENV_FILE", "Boto3/.env")
-
-def _read_dotenv(path: str) -> dict:
-    vals = {}
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            for line in fh:
-                s = line.strip()
-                if not s or s.startswith("#") or "=" not in s:
-                    continue
-                k, v = s.split("=", 1)
-                vals[k.strip()] = v.strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
-    return vals
-
-_cfg = {**_read_dotenv(ENV_FILE), **os.environ}
+load_dotenv()
 
 AWS_REGION = "us-east-1"
-
 BUCKET_NAME_SOURCE = "polystudents3-boto3-1584966-source"
-
 BUCKET_NAME_REPLICA = "polystudents3-boto3-1584966-replica"
-
-ROLE_ARN = _cfg.get("ROLE_ARN")
-
-KMS_KEY_ARN = _cfg.get("kms_key_arn")
-AWS_ACCESS_KEY = _cfg.get("aws_access_key_id")
-AWS_SECRET_ACCESS_KEY = _cfg.get("aws_secret_access_key")
-AWS_SESSION_TOKEN = _cfg.get("aws_session_token")
+KMS_KEY_ARN = os.getenv("KMSMASTERKEYID")
+AWS_ACCESS_KEY = os.getenv("ACCESS_KEY")
+AWS_SECRET_ACCESS_KEY = os.getenv("SECRET_KEY")
+ACCOUNT_ID = os.getenv("ACCOUNT_ID")
+#AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN") # Uncomment if using AWS Learner Lab
 
 FILE = 'barbenoir.jpg'
 
 print("AK:", bool(AWS_ACCESS_KEY))
 print("SK:", bool(AWS_SECRET_ACCESS_KEY))
-print("ST:", AWS_SESSION_TOKEN is not None, len(AWS_SESSION_TOKEN or ""))
+#print("ST:", AWS_SESSION_TOKEN is not None, len(AWS_SESSION_TOKEN or ""))
 
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    aws_session_token=AWS_SESSION_TOKEN,
+    #aws_session_token=AWS_SESSION_TOKEN, # Uncomment if using AWS Learner Lab
     region_name=AWS_REGION
 )   
 
-s3 = session.client('s3')
 
-ct = session.client('cloudtrail')
+def create_bucket_exists(s3 , bucket_name):
 
-# ----------------------------------
-
-def create_bucket_exists(s3 , BUCKET_NAME):
-
-    create_kwargs = {
-        "Bucket": BUCKET_NAME
-    }
-
-    try:
-        s3.create_bucket(**create_kwargs)
-        print(f"Bucket created: {BUCKET_NAME} in {AWS_REGION}")
-    except botocore.exceptions.ClientError as e:
-        code = e.response["Error"]["Code"]
-        if code in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
-            print(f"Bucket {BUCKET_NAME} already exists.")
-        else:
-            raise
-    
-    return BUCKET_NAME
-
-def block_public_access(s3 , BUCKET_NAME):
-    s3.put_public_access_block(
-        Bucket=BUCKET_NAME,
-        PublicAccessBlockConfiguration={
-            "BlockPublicAcls": True,
-            "IgnorePublicAcls": True,
-            "BlockPublicPolicy": True,
-            "RestrictPublicBuckets": True,
-        },
+    s3_response = s3.create_bucket(
+        Bucket=bucket_name,
     )
-    print("Public access fully blocked")
 
+    print('S3 Bucket Created \n')
+    print("S3 Bucket Path:", s3_response['Location'], "\n")
 
-def enable_kms_encryption(s3 , BUCKET_NAME):
-    s3.put_bucket_encryption(
-        Bucket=BUCKET_NAME,
-        ServerSideEncryptionConfiguration={
-            "Rules": [
+    encryption_response = s3.put_bucket_encryption(
+        Bucket=bucket_name,
+        ServerSideEncryptionConfiguration = {
+            'Rules': [
                 {
-                    "ApplyServerSideEncryptionByDefault": {
-                        "SSEAlgorithm": "aws:kms",
-                        "KMSMasterKeyID": KMS_KEY_ARN,
-                    }
+                'ApplyServerSideEncryptionByDefault': {
+                    'SSEAlgorithm': 'aws:kms',
+                    'KMSMasterKeyID': KMS_KEY_ARN
+                },
                 }
             ]
-        },
-    )
-    print(f"KMS encryption enabled with key: {KMS_KEY_ARN}")
-
-
-def enable_versioning(s3 , BUCKET_NAME):
-    s3.put_bucket_versioning(
-        Bucket=BUCKET_NAME,
-        VersioningConfiguration={
-            "Status": "Enabled"
         }
     )
-    print("Versioning enabled")
+    print("Added Encryption to the bucket \n")
+    print('ENCRYPTION : ', encryption_response , '\n')
 
+    public_access_block_response = s3.put_public_access_block(
+        Bucket=bucket_name,
+        PublicAccessBlockConfiguration={
+            'BlockPublicAcls': True,
+            'BlockPublicPolicy': True,
+            'IgnorePublicAcls': True,
+            'RestrictPublicBuckets': True
+        }
+    )
+    print("Added Public Access Block to the bucket \n")
+    print('PUBLIC ACCESS BLOCK : ', public_access_block_response , '\n')
+
+    version_config_response = s3.put_bucket_versioning(
+        Bucket=bucket_name,
+        VersioningConfiguration={
+            'Status': 'Enabled'
+        }
+    )
+    print("Added Version Cofniguration to the bucket \n")
+    print('VERSION CONFIG : ', version_config_response , '\n')
+
+    
 def upload_sample_file(s3, source_bucket, replica_bucket, key_name):
     
     response = s3.put_object(
@@ -147,13 +113,57 @@ def show_objects(s3 , BUCKET_NAME):
     else:
         print("No objects found in the bucket.")
 
-def setup_cloudtrail():
+def setup_cloudtrail(s3, ct):
+
+    cloudtrail_policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "AWSCloudTrailAclCheck",
+                "Effect": "Allow",
+                "Principal": {"Service": "cloudtrail.amazonaws.com"},
+                "Action": "s3:GetBucketAcl",
+                "Resource": f"arn:aws:s3:::{BUCKET_NAME_SOURCE}",
+                "Condition": {
+                    "StringEquals": {
+                        "aws:SourceArn": f"arn:aws:cloudtrail:{AWS_REGION}:{ACCOUNT_ID}:trail/polystudents3-1584966-cloudtrail"
+                    }
+                }
+            },
+            {
+                "Sid": "AWSCloudTrailWrite",
+                "Effect": "Allow",
+                "Principal": {"Service": "cloudtrail.amazonaws.com"},
+                "Action": "s3:PutObject",
+                "Resource": f"arn:aws:s3:::{BUCKET_NAME_SOURCE}/AWSLogs/{ACCOUNT_ID}/*",
+                "Condition": {
+                    "StringEquals": {
+                        "s3:x-amz-acl": "bucket-owner-full-control",
+                        "aws:SourceArn": f"arn:aws:cloudtrail:{AWS_REGION}:{ACCOUNT_ID}:trail/polystudents3-1584966-cloudtrail"
+                    }
+                }
+            }
+        ]
+    }
+
+    s3.put_bucket_policy(
+        Bucket=BUCKET_NAME_SOURCE,
+        Policy=json.dumps(cloudtrail_policy)
+    )
     
-    response = ct.create_trail(
+    print(f"Added CloudTrail policy to S3 bucket for trail: polystudents3-1584966-cloudtrail")
+    time.sleep(10)
+
+
+    trail_response = ct.create_trail(
         Name="polystudents3-1584966-cloudtrail",
         S3BucketName=BUCKET_NAME_SOURCE,
         IsMultiRegionTrail=True,
     )
+    
+    print("Trail Created")
+    print("TRAIL : ", trail_response , '\n')
+
 
     ct.start_logging(Name="polystudents3-1584966-cloudtrail")
 
@@ -167,7 +177,7 @@ def setup_cloudtrail():
                     {
                         "Type": "AWS::S3::Object",
                         "Values": [
-                            "arn:aws:s3:::polystudents3-boto3-1584966-source/"
+                            f"arn:aws:s3:::{BUCKET_NAME_SOURCE}/"
                         ],
                     }
                 ],
@@ -175,36 +185,23 @@ def setup_cloudtrail():
         ],
     )
     
-    print(f"CloudTrail setup completed : {response}")
+    print(f"CloudTrail setup completed")
     
     
 def main():
 
-    print("\n Creating S3 buckets")
+    s3 = session.client('s3')
+    ct = session.client('cloudtrail')
+
+    print("\n Creating and configuring S3 buckets")
     create_bucket_exists(s3 , BUCKET_NAME_SOURCE)
     create_bucket_exists(s3 , BUCKET_NAME_REPLICA)
-    
-    print("\n Configuring S3 buckets")
-    block_public_access(s3 , BUCKET_NAME_SOURCE)
-    block_public_access(s3 , BUCKET_NAME_REPLICA)
-    
-    print("\n Enabling KMS encryption")
-    enable_kms_encryption(s3, BUCKET_NAME_SOURCE)
-    enable_kms_encryption(s3, BUCKET_NAME_REPLICA)
-    
-    print("\n Enabling versioning")
-    enable_versioning(s3, BUCKET_NAME_SOURCE)
-    enable_versioning(s3, BUCKET_NAME_REPLICA)
-    
-    print("\n Bucket created")
     
     print("\n Upload a sample file and replicate it")
     upload_sample_file(s3 , BUCKET_NAME_SOURCE , BUCKET_NAME_REPLICA , FILE )
     
-    
-    
     print("\n Setting up CloudTrail")
-    setup_cloudtrail()
+    setup_cloudtrail(s3, ct)
 
 if __name__ == "__main__":
     main()
