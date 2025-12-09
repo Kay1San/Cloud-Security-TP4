@@ -8,24 +8,19 @@ import time
 load_dotenv()
 
 AWS_REGION = "us-east-1"
-BUCKET_NAME_SOURCE = "polystudents3-boto3-1584966-source"
-BUCKET_NAME_REPLICA = "polystudents3-boto3-1584966-replica"
-KMS_KEY_ARN = os.getenv("KMSMASTERKEYID")
-AWS_ACCESS_KEY = os.getenv("ACCESS_KEY")
-AWS_SECRET_ACCESS_KEY = os.getenv("SECRET_KEY")
+BUCKET_NAME_SOURCE = "polystudents3-boto3-1584966-source-2"
+BUCKET_NAME_REPLICA = "polystudents3-boto3-1584966-replica-2"
+KMS_KEY_ARN = os.getenv("KEY_NAME_S3_ARN")
+AWS_ACCESS_KEY = os.getenv("aws_access_key_id")
+AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
 ACCOUNT_ID = os.getenv("ACCOUNT_ID")
-#AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN") # Uncomment if using AWS Learner Lab
-
+AWS_SESSION_TOKEN = os.getenv("aws_session_token")
 FILE = 'barbenoir.jpg'
-
-print("AK:", bool(AWS_ACCESS_KEY))
-print("SK:", bool(AWS_SECRET_ACCESS_KEY))
-#print("ST:", AWS_SESSION_TOKEN is not None, len(AWS_SESSION_TOKEN or ""))
 
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    #aws_session_token=AWS_SESSION_TOKEN, # Uncomment if using AWS Learner Lab
+    aws_session_token=AWS_SESSION_TOKEN, 
     region_name=AWS_REGION
 )   
 
