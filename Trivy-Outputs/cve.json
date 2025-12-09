@@ -1,0 +1,32 @@
+﻿[
+  {
+    "Description": "IMDS v2 (Instance Metadata Service) introduced session authentication tokens which improve security when talking to IMDS.\n\nBy default <code>aws_instance</code> resource sets IMDS session auth tokens to be optional.\n\nTo fully protect IMDS you need to enable session tokens by using <code>metadata_options</code> block and its <code>http_tokens</code> variable set to <code>required</code>.\n",
+    "CVSSv3": null,
+    "Severity": "HIGH"
+  },
+  {
+    "Description": "Block devices should be encrypted to ensure sensitive data is held securely at rest.\n",
+    "CVSSv3": null,
+    "Severity": "HIGH"
+  },
+  {
+    "Description": "Security groups provide stateful filtering of ingress and egress network traffic to AWS\nresources. It is recommended that no security group allows unrestricted ingress access to\nremote server administration ports, such as SSH to port 22 and RDP to port 3389.\n",
+    "CVSSv3": null,
+    "Severity": "HIGH"
+  },
+  {
+    "Description": "Security groups provide stateful filtering of ingress and egress network traffic to AWS\nresources. It is recommended that no security group allows unrestricted ingress access to\nremote server administration ports, such as SSH to port 22 and RDP to port 3389.\n",
+    "CVSSv3": null,
+    "Severity": "HIGH"
+  },
+  {
+    "Description": "You should limit the provision of public IP addresses for resources. Resources should not be exposed on the public internet, but should have access limited to consumers required for the function of your application.\n",
+    "CVSSv3": null,
+    "Severity": "HIGH"
+  },
+  {
+    "Description": "You should limit the provision of public IP addresses for resources. Resources should not be exposed on the public internet, but should have access limited to consumers required for the function of your application.\n",
+    "CVSSv3": null,
+    "Severity": "HIGH"
+  }
+]
