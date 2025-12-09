@@ -105,8 +105,8 @@ def upload_sample_file(s3, source_bucket, replica_bucket, key_name):
 
     print(f"Replicated {key_name} → {replica_bucket}")
 
-def show_objects(s3 , BUCKET_NAME):
-    response = s3.list_objects_v2(Bucket=BUCKET_NAME)
+def show_objects(s3 , bucket_name):
+    response = s3.list_objects_v2(Bucket=bucket_name)
     if 'Contents' in response:
         for obj in response['Contents']:
             print(f" - {obj['Key']} (VersionId: {obj.get('VersionId', 'N/A')})")
