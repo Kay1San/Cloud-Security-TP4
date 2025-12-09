@@ -1,46 +1,26 @@
 import boto3
 import os
+from dotenv import load_dotenv
 
-# -----------------------------
-# PARAMÈTRES & ENV
-# -----------------------------
-
-ENV_FILE = os.getenv("ENV_FILE", "Boto3/.env")
-
-def _read_dotenv(path: str) -> dict:
-    vals = {}
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            for line in fh:
-                s = line.strip()
-                if not s or s.startswith("#") or "=" not in s:
-                    continue
-                k, v = s.split("=", 1)
-                vals[k.strip()] = v.strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
-    return vals
-
-_cfg = {**_read_dotenv(ENV_FILE), **os.environ}
+load_dotenv()
 
 AWS_REGION = "us-east-1"
 AZ1 = "us-east-1a"
 AZ2 = "us-east-1b"
 
-ENV_NAME = _cfg.get("ENVIRONMENT_NAME", "polystudent-vpc-boto3")
-
-KEY_NAME = _cfg.get("KEY_NAME", "cle-log8102")
-AWS_ACCESS_KEY = _cfg.get("aws_access_key_id")
-AWS_SECRET_ACCESS_KEY = _cfg.get("aws_secret_access_key")
-AWS_SESSION_TOKEN = _cfg.get("aws_session_token")
-BUCKET_ARN = _cfg.get("bucket_arn")
+ENV_NAME = os.getenv("ENVIRONMENT_NAME", "polystudent-vpc-boto3")
+KEY_NAME = os.getenv("KEY_NAME", "cle-inf8102")
+AWS_ACCESS_KEY = os.getenv("aws_access_key_id")
+AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
+#AWS_SESSION_TOKEN = os.getenv("aws_session_token")
+BUCKET_ARN = os.getenv("bucket_arn")
 AMI_ID = "ami-0ecb62995f68bb549"
 INSTANCE_TYPE = "t3.micro"
 
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    aws_session_token=AWS_SESSION_TOKEN,
+    #aws_session_token=AWS_SESSION_TOKEN,
     region_name=AWS_REGION
 )   
 
@@ -49,11 +29,8 @@ ec2_client = session.client('ec2')
 cloudwatch = session.client('cloudwatch')
 
 
-# -----------------------------
-# CRÉATION VPC & SUBNETS
-# -----------------------------
-
 def create_vpc():
+    
     vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16')
     vpc.wait_until_available()
     
@@ -65,7 +42,7 @@ def create_vpc():
     print(f'VPC: {vpc.id}')
     return vpc
 
-def create_subnet(vpc):
+def create_public_subnet(vpc):
     
     public_subnet_01 = vpc.create_subnet(
         CidrBlock='10.0.0.0/24',
@@ -75,26 +52,12 @@ def create_subnet(vpc):
         CidrBlock='10.0.16.0/24',
         AvailabilityZone=AZ2,
     )
-    private_subnet_01 = vpc.create_subnet(
-        CidrBlock='10.0.128.0/24',
-        AvailabilityZone=AZ1,
-    )
-    private_subnet_02 = vpc.create_subnet(
-        CidrBlock='10.0.144.0/24',
-        AvailabilityZone=AZ2,
-    )
-
+    
     public_subnet_01.create_tags(Tags=[
         {"Key": "Name", "Value": f"{ENV_NAME} Public Subnet (AZ1)"}
     ])
     public_subnet_02.create_tags(Tags=[
         {"Key": "Name", "Value": f"{ENV_NAME} Public Subnet (AZ2)"}
-    ])
-    private_subnet_01.create_tags(Tags=[
-        {"Key": "Name", "Value": f"{ENV_NAME} Private Subnet (AZ1)"}
-    ])
-    private_subnet_02.create_tags(Tags=[
-        {"Key": "Name", "Value": f"{ENV_NAME} Private Subnet (AZ2)"}
     ])
 
     # MapPublicIpOnLaunch = true pour les subnets publics
@@ -107,34 +70,43 @@ def create_subnet(vpc):
         MapPublicIpOnLaunch={'Value': True}
     )
        
-    print(f'Public_subnet_01 : {public_subnet_01.id},Public_subnet_02: {public_subnet_02.id},Private_subnet_01: {private_subnet_01.id},Private_subnet_02: {private_subnet_02.id}')
-    return public_subnet_01, public_subnet_02, private_subnet_01, private_subnet_02
+    print(f'Public_subnet_01 : {public_subnet_01.id},Public_subnet_02: {public_subnet_02.id}')
+    return public_subnet_01, public_subnet_02
+
+def create_private_subnet(vpc):
+    
+    private_subnet_01 = vpc.create_subnet(
+        CidrBlock='10.0.128.0/24',
+        AvailabilityZone=AZ1,
+    )
+    private_subnet_02 = vpc.create_subnet(
+        CidrBlock='10.0.144.0/24',
+        AvailabilityZone=AZ2,
+    )
+
+    private_subnet_01.create_tags(Tags=[
+        {"Key": "Name", "Value": f"{ENV_NAME} Private Subnet (AZ1)"}
+    ])
+    private_subnet_02.create_tags(Tags=[
+        {"Key": "Name", "Value": f"{ENV_NAME} Private Subnet (AZ2)"}
+    ])
+
+    print(f'Private_subnet_01: {private_subnet_01.id},Private_subnet_02: {private_subnet_02.id}')
+
+    return private_subnet_01, private_subnet_02
 
 def create_internet_gateway(vpc):
+    
     igw = ec2.create_internet_gateway()
     igw.create_tags(Tags=[{'Key': 'Name', 'Value': f'{ENV_NAME} IGW'}])
     
-    
-    vpc.attach_internet_gateway(InternetGatewayId=igw.id)
+    vpc.attach_internet_gateway(InternetGatewayId=igw.id, VpcId = vpc.id)
     print(f'Internet Gateway: {igw.id}')
     return igw
 
-def create_public_route_table(vpc, igw, public_subnets):
-    route_table = vpc.create_route_table()
-    route_table.create_tags(Tags=[{'Key': 'Name', 'Value': f'{ENV_NAME} Public Route'}])
-    
-    route_table.create_route(
-        DestinationCidrBlock='0.0.0.0/0',
-        GatewayId=igw.id,
-    )
-    
-    for subnet in public_subnets:
-        route_table.associate_with_subnet(SubnetId=subnet.id)
-        
-    print(f'RouteTable-Public : {route_table.id}')
-    return route_table
 
 def nat_gateway_setup(public_subnet):
+    
     eip = ec2_client.allocate_address(Domain='vpc')
     allocation_id = eip['AllocationId']
     print(f'Elastic IP Public Subnet : {allocation_id}')
@@ -152,13 +124,30 @@ def nat_gateway_setup(public_subnet):
     
     nat_gateway_id = nat_gateway_response['NatGateway']['NatGatewayId']
     print(f'NAT Gateway : {nat_gateway_id} ')
-    
     waiter = ec2_client.get_waiter('nat_gateway_available')
     waiter.wait(NatGatewayIds=[nat_gateway_id])
+    print("NAT Gateway is now available")
     
     return nat_gateway_id
 
+def create_public_route_table(vpc, igw, public_subnets):
+    
+    route_table = vpc.create_route_table()
+    route_table.create_tags(Tags=[{'Key': 'Name', 'Value': f'{ENV_NAME} Public Route'}])
+    
+    route_table.create_route(
+        DestinationCidrBlock='0.0.0.0/0',
+        GatewayId=igw.id,
+    )
+    
+    for subnet in public_subnets:
+        route_table.associate_with_subnet(SubnetId=subnet.id)
+        
+    print(f'RouteTable-Public : {route_table.id}')
+    return route_table
+
 def create_private_route_table(vpc, nat_gateway_id, private_subnet):
+    
     route_table = vpc.create_route_table()
     route_table.create_tags(Tags=[{'Key': 'Name', 'Value': f'{ENV_NAME} Private Route'}])
     
@@ -181,65 +170,22 @@ def create_security_group(vpc):
     )
     
     sg.create_tags(Tags=[{'Key': 'Name', 'Value': f'{ENV_NAME} SG'}])
-    
-    sg.authorize_ingress(
-        IpPermissions=[
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 22,
-                'ToPort': 22,
-                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-            },  
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 80,
-                'ToPort': 80,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]\
-            },
-            {   'IpProtocol': 'tcp',
-                'FromPort': 443,
-                'ToPort': 443,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]
-            },
-            {   'IpProtocol': 'tcp',
-                'FromPort': 1433,
-                'ToPort': 1433,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]
-            },
-            {   'IpProtocol': 'tcp',
-                'FromPort': 3389,
-                'ToPort': 3389,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]
-            },
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 53,
-                'ToPort': 53,
-                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-            },  
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 5432,
-                'ToPort': 5432,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]\
-            },
-            {   'IpProtocol': 'tcp',
-                'FromPort': 3306,
-                'ToPort': 3306,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]
-            },
-            {   'IpProtocol': 'tcp',
-                'FromPort': 1514,
-                'ToPort': 1514,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]
-            },
-            {   'IpProtocol': 'tcp',
-                'FromPort': 9200,
-                'ToPort': 9200,
-                'IpRanges': [{'CidrIp':'0.0.0.0/0'}]
-            },
-        ]
+    ports = [22, 80, 443, 53, 1433, 5432, 3306, 3389, 1514, 9200]
+    ip_permissions = []
+
+    for port in ports:
+        ip_permissions.append({
+            'IpProtocol': 'tcp',
+            'FromPort': port,
+            'ToPort': port,
+            'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+        })
+
+    ec2_client.authorize_security_group_ingress(
+        GroupId=sg.id,
+        IpPermissions=ip_permissions
     )
+
     print(f'Security Group: {sg.id}')
     return sg    
 
@@ -390,7 +336,8 @@ if __name__ == "__main__":
     enable_vpc_flow_logs(vpc)
     
     # Creation des subnets (Question 1)
-    public_subnet_01, public_subnet_02, private_subnet_01, private_subnet_02 = create_subnet(vpc)
+    public_subnet_01, public_subnet_02 = create_public_subnet(vpc)
+    private_subnet_01, private_subnet_02 = create_private_subnet(vpc)
     
     # Creation Igw (Question 1)
     igw = create_internet_gateway(vpc)
