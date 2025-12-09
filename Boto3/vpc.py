@@ -12,7 +12,7 @@ ENV_NAME = os.getenv("ENVIRONMENT_NAME", "polystudent-vpc-boto3")
 KEY_NAME = os.getenv("KEY_NAME", "cle-inf8102")
 AWS_ACCESS_KEY = os.getenv("aws_access_key_id")
 AWS_SECRET_ACCESS_KEY = os.getenv("aws_secret_access_key")
-#AWS_SESSION_TOKEN = os.getenv("aws_session_token")
+AWS_SESSION_TOKEN = os.getenv("aws_session_token")
 BUCKET_ARN = os.getenv("bucket_arn")
 AMI_ID = "ami-0ecb62995f68bb549"
 INSTANCE_TYPE = "t3.micro"
@@ -20,7 +20,7 @@ INSTANCE_TYPE = "t3.micro"
 session = boto3.Session(
     aws_access_key_id=AWS_ACCESS_KEY,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    #aws_session_token=AWS_SESSION_TOKEN,
+    aws_session_token=AWS_SESSION_TOKEN,
     region_name=AWS_REGION
 )   
 
