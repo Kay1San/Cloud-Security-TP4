@@ -6,6 +6,7 @@ L'architecture de ce répertoire est telle que :
 * Boto3 : Contient deux fichiers (constamment mises à jour en fonction des questions) sur la configuration du VPC ainsi que du bucket S3
 * CloudFormation : Contient les fichiers .yaml et .json utilisés lors des étapes préalables pour configurer l'architecture AWS
 * Trivy-Outputs: Contient l'architecture .yaml du code Boto3 (obtenu par Former2) ainsi que les fichiers de Scans de Trivy
+* Figures: Contient les captures de déploiement
 
 ## Installation
 1. Installer les dépendences via pip install -r requirements.txt
